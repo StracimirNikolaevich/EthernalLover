@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character - EthernalLover</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <div>
+                    <h1>💕 AI Companion</h1>
+                    <p class="subtitle">Chat with your AI girlfriend</p>
+                </div>
+                <div class="user-info" id="userInfo" style="display: none;">
+                    <span class="user-email" id="userEmail"></span>
+                    <button class="logout-btn" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div id="characterDetails">
+                <div class="loading">Loading character...</div>
+            </div>
+            
+            <div class="chat-container">
+                <div id="chatMessages" class="chat-messages">
+                    <div class="loading">Loading chat...</div>
+                </div>
+                <div class="chat-input-container">
+                    <input type="file" id="imageFileInput" accept="image/*" style="display: none;">
+                    <button class="image-upload-btn" id="imageUploadBtn">📷</button>
+                    <input type="text" id="chatInput" class="chat-input" placeholder="Type a message...">
+                    <button class="send-btn" id="sendBtn">Send</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/auth.js"></script>
+    <script src="/app.js"></script>
+    <script src="/chat.js"></script>
+    <script>
+        let currentCharacterId = null;
+        
+        // Make getAuthHeaders available globally
+        window.getAuthHeaders = async function() {
+            const session = await window.supabaseAuth.getSession();
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
+            }
+            
+            return headers;
+        };
+        
+        // Check authentication and load character
+        async function checkAuthAndLoad() {
+            const session = await window.supabaseAuth.checkAuth();
+            if (!session) {
+                window.location.href = '/';
+                return;
+            }
+            
+            // Show user info
+            const user = await window.supabaseAuth.getCurrentUser();
+            const userInfo = document.getElementById('userInfo');
+            const userEmail = document.getElementById('userEmail');
+            
+            if (user && userInfo && userEmail) {
+                userInfo.style.display = 'flex';
+                userEmail.textContent = user.email || 'User';
+            }
+            
+            // Setup logout
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async () => {
+                    await window.supabaseAuth.signOut();
+                    window.location.href = '/';
+                });
+            }
+            
+            // Get character ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const characterId = urlParams.get('id');
+            
+            if (!characterId) {
+                alert('No character ID provided. Redirecting to characters page.');
+                window.location.href = '/characters';
+                return;
+            }
+            
+            currentCharacterId = characterId;
+            
+            // Load character details
+            const character = await window.loadCharacter(characterId);
+            if (character) {
+                window.displayCharacterDetails(character, 'characterDetails');
+                // Initialize chat
+                await window.initChat(characterId);
+            } else {
+                alert('Character not found. Redirecting to characters page.');
+                window.location.href = '/characters';
+            }
+        }
+        
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', checkAuthAndLoad);
+    </script>
+</body>
+</html>

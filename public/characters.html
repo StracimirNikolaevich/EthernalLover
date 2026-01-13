@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Characters - EthernalLover</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <div>
+                    <h1>💕 My AI Companions</h1>
+                    <p class="subtitle">Select a character or create a new one</p>
+                </div>
+                <div class="user-info" id="userInfo" style="display: none;">
+                    <span class="user-email" id="userEmail"></span>
+                    <button class="logout-btn" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div id="charactersGrid" class="characters-grid">
+                <div class="loading">Loading characters...</div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/auth.js"></script>
+    <script src="/app.js"></script>
+    <script>
+        // Check authentication
+        async function checkAuthAndLoad() {
+            const session = await window.supabaseAuth.checkAuth();
+            if (!session) {
+                window.location.href = '/';
+                return;
+            }
+            
+            // Show user info
+            const user = await window.supabaseAuth.getCurrentUser();
+            const userInfo = document.getElementById('userInfo');
+            const userEmail = document.getElementById('userEmail');
+            
+            if (user && userInfo && userEmail) {
+                userInfo.style.display = 'flex';
+                userEmail.textContent = user.email || 'User';
+            }
+            
+            // Setup logout
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async () => {
+                    await window.supabaseAuth.signOut();
+                    window.location.href = '/';
+                });
+            }
+            
+            // Load characters
+            await window.loadAndDisplayCharacters();
+        }
+        
+        // Make getAuthHeaders available to chat.js
+        window.getAuthHeaders = async function() {
+            const session = await window.supabaseAuth.getSession();
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
+            }
+            
+            return headers;
+        };
+        
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', checkAuthAndLoad);
+    </script>
+</body>
+</html>
