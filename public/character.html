@@ -63,8 +63,27 @@
         
         // Check authentication and load character
         async function checkAuthAndLoad() {
-            const session = await window.supabaseAuth.checkAuth();
-            if (!session) {
+            // Wait for Supabase to be ready
+            let retries = 0;
+            while (!window.supabaseAuth && retries < 10) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                retries++;
+            }
+            
+            if (!window.supabaseAuth) {
+                console.error('Supabase auth not available');
+                alert('Authentication system not ready. Please refresh the page.');
+                return;
+            }
+            
+            try {
+                const session = await window.supabaseAuth.checkAuth();
+                if (!session) {
+                    window.location.href = '/';
+                    return;
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
                 window.location.href = '/';
                 return;
             }

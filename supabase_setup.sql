@@ -39,7 +39,17 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created
 ALTER TABLE ai_girlfriends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
--- 5. RLS Policies for ai_girlfriends
+-- 5. Drop existing policies if they exist (to avoid conflicts)
+DROP POLICY IF EXISTS "Users can view their own characters" ON ai_girlfriends;
+DROP POLICY IF EXISTS "Users can insert their own characters" ON ai_girlfriends;
+DROP POLICY IF EXISTS "Users can update their own characters" ON ai_girlfriends;
+DROP POLICY IF EXISTS "Users can delete their own characters" ON ai_girlfriends;
+DROP POLICY IF EXISTS "Users can view messages for their characters" ON chat_messages;
+DROP POLICY IF EXISTS "Users can insert messages for their characters" ON chat_messages;
+DROP POLICY IF EXISTS "Users can update their own messages" ON chat_messages;
+DROP POLICY IF EXISTS "Users can delete their own messages" ON chat_messages;
+
+-- 6. RLS Policies for ai_girlfriends
 -- Users can only see their own characters
 CREATE POLICY "Users can view their own characters"
     ON ai_girlfriends FOR SELECT
@@ -61,7 +71,7 @@ CREATE POLICY "Users can delete their own characters"
     ON ai_girlfriends FOR DELETE
     USING (auth.uid() = user_id);
 
--- 6. RLS Policies for chat_messages
+-- 7. RLS Policies for chat_messages
 -- Users can only see messages for their own characters
 CREATE POLICY "Users can view messages for their characters"
     ON chat_messages FOR SELECT
@@ -96,7 +106,7 @@ CREATE POLICY "Users can delete their own messages"
     ON chat_messages FOR DELETE
     USING (auth.uid() = user_id);
 
--- 7. Create function to update updated_at timestamp
+-- 8. Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -105,18 +115,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 8. Create trigger to auto-update updated_at
+-- 9. Create trigger to auto-update updated_at
 CREATE TRIGGER update_ai_girlfriends_updated_at
     BEFORE UPDATE ON ai_girlfriends
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- 9. Create storage bucket for character images
+-- 10. Create storage bucket for character images
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('character-images', 'character-images', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- 10. Storage policies for character-images bucket
+-- Drop existing policies if they exist (to avoid conflicts)
+DROP POLICY IF EXISTS "Authenticated users can upload images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can update their images" ON storage.objects;
+DROP POLICY IF EXISTS "Public can view images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can delete their images" ON storage.objects;
+
 -- Allow authenticated users to upload images
 CREATE POLICY "Authenticated users can upload images"
     ON storage.objects FOR INSERT

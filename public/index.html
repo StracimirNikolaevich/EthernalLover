@@ -49,91 +49,236 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Debug: Check if Supabase loads
+        window.addEventListener('load', () => {
+            console.log('Page loaded. Supabase available:', typeof window.supabase !== 'undefined');
+            if (typeof window.supabase !== 'undefined') {
+                console.log('Supabase object:', window.supabase);
+                console.log('createClient available:', typeof window.supabase.createClient !== 'undefined');
+            }
+        });
+    </script>
     <script src="/auth.js"></script>
     <script>
         let isSignUp = false;
         
-        // Google login
-        document.getElementById('googleLoginBtn').addEventListener('click', async () => {
-            const result = await window.supabaseAuth.signInWithGoogle();
-            if (!result.success) {
-                showError(result.error);
-            }
-        });
-        
-        // Toggle between sign in and sign up
-        document.getElementById('toggleLink').addEventListener('click', (e) => {
-            e.preventDefault();
-            isSignUp = !isSignUp;
-            const submitBtn = document.getElementById('emailSubmitBtn');
-            const submitText = document.getElementById('emailSubmitText');
-            const toggleText = document.getElementById('toggleText');
-            const toggleLink = document.getElementById('toggleLink');
-            
-            if (isSignUp) {
-                submitText.textContent = 'Sign Up';
-                toggleText.textContent = 'Already have an account?';
-                toggleLink.textContent = 'Sign in';
-            } else {
-                submitText.textContent = 'Sign In';
-                toggleText.textContent = 'Don't have an account?';
-                toggleLink.textContent = 'Sign up';
-            }
-        });
-        
-        // Email form submission
-        document.getElementById('emailForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const submitBtn = document.getElementById('emailSubmitBtn');
-            
-            submitBtn.disabled = true;
-            hideMessages();
-            
-            let result;
-            if (isSignUp) {
-                result = await window.supabaseAuth.signUp(email, password);
-            } else {
-                result = await window.supabaseAuth.signIn(email, password);
-            }
-            
-            if (result.success) {
-                showSuccess(isSignUp ? 'Account created! Please check your email to verify your account.' : 'Signed in successfully!');
-                setTimeout(() => {
-                    window.location.href = '/characters';
-                }, 1000);
-            } else {
-                showError(result.error);
-                submitBtn.disabled = false;
-            }
-        });
-        
-        // Check if already logged in
+        // Wait for everything to be ready
         window.addEventListener('DOMContentLoaded', async () => {
-            const session = await window.supabaseAuth.checkAuth();
-            if (session) {
-                window.location.href = '/characters';
+            // Wait for Supabase to initialize (longer wait for auth.js to set up)
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Check if supabaseAuth is available, if not wait more
+            let retries = 0;
+            while (!window.supabaseAuth && retries < 20) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                retries++;
+            }
+            
+            if (!window.supabaseAuth) {
+                console.error('Supabase auth not initialized after waiting');
+                showError('Authentication system failed to load. Please refresh the page.');
+                return;
+            }
+            
+            // Check if already logged in
+            try {
+                if (window.supabaseAuth) {
+                    const session = await window.supabaseAuth.checkAuth();
+                    if (session) {
+                        window.location.href = '/characters';
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+            }
+            
+            // Google login button - always attach handler
+            const googleBtn = document.getElementById('googleLoginBtn');
+            if (googleBtn) {
+                googleBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log('Google login button clicked');
+                    
+                    // Check if auth is ready
+                    if (!window.supabaseAuth) {
+                        showError('Authentication system not ready. Please wait a moment and try again.');
+                        return;
+                    }
+                    
+                    hideMessages();
+                    
+                    // Disable button during process
+                    googleBtn.disabled = true;
+                    googleBtn.style.opacity = '0.6';
+                    googleBtn.style.cursor = 'not-allowed';
+                    
+                    try {
+                        const result = await window.supabaseAuth.signInWithGoogle();
+                        
+                        if (result && result.redirecting) {
+                            // OAuth redirect is happening, don't show error
+                            console.log('OAuth redirect initiated');
+                            return;
+                        }
+                        
+                        if (!result || !result.success) {
+                            console.error('Google login failed:', result ? result.error : 'No result');
+                            showError(result ? result.error : 'Failed to sign in with Google. Please try again.');
+                            googleBtn.disabled = false;
+                            googleBtn.style.opacity = '1';
+                            googleBtn.style.cursor = 'pointer';
+                        }
+                    } catch (error) {
+                        console.error('Google login exception:', error);
+                        showError('An error occurred: ' + (error.message || 'Unknown error'));
+                        googleBtn.disabled = false;
+                        googleBtn.style.opacity = '1';
+                        googleBtn.style.cursor = 'pointer';
+                    }
+                });
+            } else {
+                console.error('Google button not found in DOM');
+            }
+            
+            // Toggle between sign in and sign up
+            const toggleLink = document.getElementById('toggleLink');
+            if (toggleLink) {
+                toggleLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    isSignUp = !isSignUp;
+                    const submitBtn = document.getElementById('emailSubmitBtn');
+                    const submitText = document.getElementById('emailSubmitText');
+                    const toggleText = document.getElementById('toggleText');
+                    const toggleLinkEl = document.getElementById('toggleLink');
+                    
+                    if (isSignUp) {
+                        submitText.textContent = 'Sign Up';
+                        toggleText.textContent = 'Already have an account?';
+                        toggleLinkEl.textContent = 'Sign in';
+                    } else {
+                        submitText.textContent = 'Sign In';
+                        toggleText.textContent = 'Don\'t have an account?';
+                        toggleLinkEl.textContent = 'Sign up';
+                    }
+                });
+            }
+            
+            // Email form submission
+            const emailForm = document.getElementById('emailForm');
+            if (emailForm) {
+                emailForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    // Check if auth is ready
+                    if (!window.supabaseAuth) {
+                        showError('Authentication system not ready. Please wait a moment and try again.');
+                        return;
+                    }
+                    
+                    const email = document.getElementById('email').value;
+                    const password = document.getElementById('password').value;
+                    const submitBtn = document.getElementById('emailSubmitBtn');
+                    
+                    if (!email || !password) {
+                        showError('Please enter both email and password');
+                        return;
+                    }
+                    
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.6';
+                    submitBtn.style.cursor = 'not-allowed';
+                    hideMessages();
+                    
+                    let result;
+                    if (isSignUp) {
+                        result = await window.supabaseAuth.signUp(email, password);
+                    } else {
+                        result = await window.supabaseAuth.signIn(email, password);
+                    }
+                    
+                    if (result.success) {
+                        if (result.requiresConfirmation) {
+                            // Email confirmation required
+                            showSuccess(result.message || 'Account created! Please check your email to verify your account before signing in.');
+                            // Don't redirect, let them know to check email
+                            submitBtn.disabled = false;
+                            submitBtn.style.opacity = '1';
+                            submitBtn.style.cursor = 'pointer';
+                            // Reset form
+                            document.getElementById('email').value = '';
+                            document.getElementById('password').value = '';
+                            isSignUp = false;
+                            // Reset toggle
+                            const submitText = document.getElementById('emailSubmitText');
+                            const toggleText = document.getElementById('toggleText');
+                            const toggleLinkEl = document.getElementById('toggleLink');
+                            submitText.textContent = 'Sign In';
+                            toggleText.textContent = 'Don\'t have an account?';
+                            toggleLinkEl.textContent = 'Sign up';
+                        } else if (result.data && result.data.session) {
+                            // Successful sign in
+                            showSuccess('Signed in successfully!');
+                            setTimeout(() => {
+                                window.location.href = '/characters';
+                            }, 1000);
+                        } else {
+                            // Sign up successful but no session (email confirmation needed)
+                            showSuccess('Account created! Please check your email to verify your account.');
+                            submitBtn.disabled = false;
+                            submitBtn.style.opacity = '1';
+                            submitBtn.style.cursor = 'pointer';
+                        }
+                    } else {
+                        showError(result.error || 'An error occurred. Please try again.');
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
+                        submitBtn.style.cursor = 'pointer';
+                    }
+                });
             }
         });
         
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-            document.getElementById('successMessage').style.display = 'none';
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+                const successDiv = document.getElementById('successMessage');
+                if (successDiv) successDiv.style.display = 'none';
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 5000);
+            }
         }
         
         function showSuccess(message) {
             const successDiv = document.getElementById('successMessage');
-            successDiv.textContent = message;
-            successDiv.style.display = 'block';
-            document.getElementById('errorMessage').style.display = 'none';
+            if (successDiv) {
+                successDiv.textContent = message;
+                successDiv.style.display = 'block';
+                const errorDiv = document.getElementById('errorMessage');
+                if (errorDiv) errorDiv.style.display = 'none';
+                
+                // Auto-hide after 5 seconds (unless redirecting)
+                if (!message.includes('redirect')) {
+                    setTimeout(() => {
+                        successDiv.style.display = 'none';
+                    }, 5000);
+                }
+            }
         }
         
         function hideMessages() {
-            document.getElementById('errorMessage').style.display = 'none';
-            document.getElementById('successMessage').style.display = 'none';
+            const errorDiv = document.getElementById('errorMessage');
+            const successDiv = document.getElementById('successMessage');
+            if (errorDiv) errorDiv.style.display = 'none';
+            if (successDiv) successDiv.style.display = 'none';
         }
     </script>
 </body>
