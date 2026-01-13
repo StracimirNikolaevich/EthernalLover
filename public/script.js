@@ -31,13 +31,18 @@ document.getElementById('generatorForm').addEventListener('submit', async (e) =>
             body: JSON.stringify(formData)
         });
         
-        const data = await response.json();
+        // Vercel returns response with body as string, need to parse
+        const responseData = await response.json();
+        const data = typeof responseData === 'string' ? JSON.parse(responseData) : responseData;
         
-        if (data.success) {
-            displayGirlfriend(data.girlfriend);
+        // Handle Vercel function response format
+        const result = data.body ? JSON.parse(data.body) : data;
+        
+        if (result.success) {
+            displayGirlfriend(result.girlfriend);
             loadRecentGirlfriends();
         } else {
-            showError(data.error || 'Failed to generate AI girlfriend');
+            showError(result.error || 'Failed to generate AI girlfriend');
         }
     } catch (error) {
         showError('An error occurred: ' + error.message);
@@ -88,10 +93,12 @@ function showError(message) {
 async function loadRecentGirlfriends() {
     try {
         const response = await fetch('/api/girlfriends');
-        const data = await response.json();
+        const responseData = await response.json();
+        const data = typeof responseData === 'string' ? JSON.parse(responseData) : responseData;
+        const result = data.body ? JSON.parse(data.body) : data;
         
-        if (data.success && data.girlfriends) {
-            displayRecentGirlfriends(data.girlfriends);
+        if (result.success && result.girlfriends) {
+            displayRecentGirlfriends(result.girlfriends);
         }
     } catch (error) {
         console.error('Error loading recent girlfriends:', error);
@@ -117,11 +124,13 @@ function displayRecentGirlfriends(girlfriends) {
 
 async function viewGirlfriend(id) {
     try {
-        const response = await fetch(`/api/girlfriend/${id}`);
-        const data = await response.json();
+        const response = await fetch(`/api/girlfriend?id=${id}`);
+        const responseData = await response.json();
+        const data = typeof responseData === 'string' ? JSON.parse(responseData) : responseData;
+        const result = data.body ? JSON.parse(data.body) : data;
         
-        if (data.success) {
-            displayGirlfriend(data.girlfriend);
+        if (result.success) {
+            displayGirlfriend(result.girlfriend);
         }
     } catch (error) {
         console.error('Error loading girlfriend:', error);
