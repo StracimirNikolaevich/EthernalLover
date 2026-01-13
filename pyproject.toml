@@ -3,7 +3,7 @@ name = "ethernal-lover"
 version = "0.1.0"
 description = "AI Girlfriend Application"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11,<4.0"
 dependencies = [
     "supabase>=2.0.0",
     "perchance>=0.1.0",
